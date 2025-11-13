@@ -1,15 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
 const app = express();
 
-// Middleware
+// Middleware - CORS for all origins
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: true, // Allow all origins
   credentials: true
 }));
 app.use(express.json());
@@ -67,8 +67,44 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Habit Schema and model
+const HabitSchema = new mongoose.Schema({
+  habitName: { type: String, required: true },
+  description: String,
+  startDate: String,
+  endDate: String,
+  frequency: { type: String, required: true },
+  category: String,
+});
+
+const Habit = mongoose.model('Habit', HabitSchema);
+
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'rehabit-super-secret-key-2024';
+
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access token required'
+    });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+    }
+    req.user = user;
+    next();
+  });
+};
 
 // Test Route
 app.get('/api/test', (req, res) => {
@@ -79,6 +115,30 @@ app.get('/api/test', (req, res) => {
     });
 });
 
+// Health check route
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        success: true,
+        status: 'OK', 
+        message: 'ReHabit Backend is running smoothly',
+        database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+        timestamp: new Date().toISOString()
+    });
+});
+app.delete('/api/habits/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedHabit = await Habit.findByIdAndDelete(id);
+
+    if (!deletedHabit) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+
+    res.json({ message: 'Habit deleted successfully', id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Signup Route
 app.post('/api/signup', async (req, res) => {
     try {
@@ -194,15 +254,24 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Health check route
-app.get('/api/health', (req, res) => {
-    res.json({ 
-        success: true,
-        status: 'OK', 
-        message: 'ReHabit Backend is running smoothly',
-        database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
-        timestamp: new Date().toISOString()
-    });
+// Habit API routes (protected with authentication)
+app.post('/api/habits', async (req, res) => {
+  try {
+    const habit = new Habit(req.body);
+    await habit.save();
+    res.status(201).json(habit);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/habits', async (req, res) => {
+  try {
+    const habits = await Habit.find();
+    res.json(habits);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 5000;
@@ -213,4 +282,5 @@ app.listen(PORT, () => {
     console.log(`   http://localhost:${PORT}/api/health`);
     console.log(`   http://localhost:${PORT}/api/signup`);
     console.log(`   http://localhost:${PORT}/api/login`);
+    console.log(`   http://localhost:${PORT}/api/habits`);
 });

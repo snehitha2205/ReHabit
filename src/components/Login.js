@@ -47,7 +47,7 @@ const Login = ({ onFormSwitch }) => {
         console.log('Login successful:', data);
         
         // Navigate to About page
-        navigate('/About');
+        navigate('/dashboard');
       } else {
         setError(data.message || 'Login failed');
       }
@@ -60,6 +60,7 @@ const Login = ({ onFormSwitch }) => {
   };
 
   return (
+    <div className="auth-page-background">
     <div className="auth-container">
       <div className="welcome-section">
         <div className="background-animation">
@@ -193,6 +194,7 @@ const Login = ({ onFormSwitch }) => {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };
