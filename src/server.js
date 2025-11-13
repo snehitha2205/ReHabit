@@ -67,7 +67,7 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-// Habit Schema and model
+// Habit Schema - Updated to include user reference
 const HabitSchema = new mongoose.Schema({
   habitName: { type: String, required: true },
   description: String,
@@ -75,6 +75,29 @@ const HabitSchema = new mongoose.Schema({
   endDate: String,
   frequency: { type: String, required: true },
   category: String,
+  userId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
+  history: {
+    type: Map,
+    of: String,
+    default: {}
+  },
+  notes: {
+    type: Map,
+    of: String,
+    default: {}
+  },
+  color: {
+    type: String,
+    default: "#da746f"
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 const Habit = mongoose.model('Habit', HabitSchema);
@@ -125,20 +148,7 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-app.delete('/api/habits/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deletedHabit = await Habit.findByIdAndDelete(id);
 
-    if (!deletedHabit) {
-      return res.status(404).json({ error: 'Habit not found' });
-    }
-
-    res.json({ message: 'Habit deleted successfully', id });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 // Signup Route
 app.post('/api/signup', async (req, res) => {
     try {
@@ -255,9 +265,14 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Habit API routes (protected with authentication)
-app.post('/api/habits', async (req, res) => {
+
+// Create a new habit for the authenticated user
+app.post('/api/habits', authenticateToken, async (req, res) => {
   try {
-    const habit = new Habit(req.body);
+    const habit = new Habit({
+      ...req.body,
+      userId: req.user.userId
+    });
     await habit.save();
     res.status(201).json(habit);
   } catch (err) {
@@ -265,10 +280,49 @@ app.post('/api/habits', async (req, res) => {
   }
 });
 
-app.get('/api/habits', async (req, res) => {
+// Get all habits for the authenticated user
+app.get('/api/habits', authenticateToken, async (req, res) => {
   try {
-    const habits = await Habit.find();
+    const habits = await Habit.find({ userId: req.user.userId });
     res.json(habits);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update a habit (only if it belongs to the authenticated user)
+app.put('/api/habits/:id', authenticateToken, async (req, res) => {
+  try {
+    const habit = await Habit.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    });
+
+    if (!habit) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+
+    Object.assign(habit, req.body);
+    await habit.save();
+    res.json(habit);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete a habit (only if it belongs to the authenticated user)
+app.delete('/api/habits/:id', authenticateToken, async (req, res) => {
+  try {
+    const habit = await Habit.findOneAndDelete({ 
+      _id: req.params.id, 
+      userId: req.user.userId 
+    });
+
+    if (!habit) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+
+    res.json({ message: 'Habit deleted successfully', id: req.params.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

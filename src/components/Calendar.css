@@ -1,0 +1,540 @@
+/* Calendar.css */
+.calendar-dashboard {
+  --red: #d6304c;
+  --marsala: #da746f;
+  --black: #1a1a1d;
+  --white: #fffafe;
+  --bg: #fff6f5;
+  --card-shadow: 0 8px 28px rgba(26, 26, 29, 0.10);
+  --radius: 18px;
+}
+
+.calendar-dashboard,
+.calendar-dashboard * {
+  box-sizing: border-box;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+
+.calendar-dashboard {
+  background: var(--bg);
+  color: var(--black);
+  min-height: 100vh;
+}
+
+.calendar-dashboard .calendar-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.calendar-dashboard .calendar-header {
+  background: linear-gradient(180deg, var(--marsala), var(--red));
+  color: var(--white);
+  padding: 24px 16px 32px;
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.10);
+  position: sticky;
+  top: 0; 
+  z-index: 10;
+}
+
+.calendar-dashboard .header-top {
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+}
+
+.calendar-dashboard .greeting { 
+  font-size: 15px; 
+  opacity: 0.95; 
+  font-weight: 600; 
+  letter-spacing: 1px;
+}
+
+.calendar-dashboard .title { 
+  font-size: 24px; 
+  font-weight: 800; 
+  margin-top: 6px; 
+}
+
+.calendar-dashboard .xp-pill { 
+  background: rgba(255,255,255,0.16); 
+  padding: 8px 16px; 
+  border-radius: 999px; 
+  font-weight: 700; 
+  font-size: 15px; 
+}
+
+/* Main Content */
+.calendar-dashboard .calendar-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding: 20px 16px;
+  flex: 1;
+}
+
+@media (min-width: 1024px) {
+  .calendar-dashboard .calendar-main {
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    padding: 30px;
+  }
+}
+
+/* Calendar Section */
+.calendar-dashboard .calendar-section {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+.calendar-dashboard .calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.calendar-dashboard .nav-button {
+  background: var(--bg);
+  color: var(--red);
+  border: none;
+  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-dashboard .nav-button:hover {
+  background: var(--red);
+  color: var(--white);
+  transform: scale(1.1);
+}
+
+.calendar-dashboard .calendar-nav h2 {
+  color: var(--black);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.calendar-dashboard .calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.calendar-dashboard .calendar-day-header {
+  text-align: center;
+  font-weight: 700;
+  color: var(--red);
+  padding: 12px 0;
+  font-size: 0.85rem;
+}
+
+.calendar-dashboard .calendar-day {
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  position: relative;
+}
+
+.calendar-dashboard .calendar-day:hover {
+  border-color: var(--marsala);
+  transform: translateY(-2px);
+}
+
+.calendar-dashboard .calendar-day.other-month {
+  opacity: 0.4;
+  background: #f8f9fa;
+}
+
+.calendar-dashboard .calendar-day.today {
+  border-color: var(--red);
+  background: linear-gradient(135deg, var(--marsala), var(--red));
+  color: var(--white);
+}
+
+.calendar-dashboard .calendar-day.selected {
+  border-color: var(--red);
+  background: var(--red);
+  color: var(--white);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(214, 48, 76, 0.3);
+}
+
+.calendar-dashboard .day-number {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.calendar-dashboard .day-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.calendar-dashboard .progress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.calendar-dashboard .progress-text {
+  font-size: 0.6rem;
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+/* Stats Section */
+.calendar-dashboard .stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.calendar-dashboard .selected-date-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+.calendar-dashboard .date-title {
+  color: var(--black);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Progress Stats */
+.calendar-dashboard .progress-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.calendar-dashboard .stat-card {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 16px 8px;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.calendar-dashboard .stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.calendar-dashboard .stat-value {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--red);
+  margin-bottom: 4px;
+}
+
+.calendar-dashboard .stat-label {
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+/* Graph Card */
+.calendar-dashboard .graph-card {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.calendar-dashboard .graph-card h4 {
+  color: var(--black);
+  margin-bottom: 15px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-dashboard .bars-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 120px;
+  gap: 8px;
+}
+
+.calendar-dashboard .bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 6px;
+}
+
+.calendar-dashboard .bar-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.calendar-dashboard .bar-container {
+  flex: 1;
+  width: 100%;
+  max-width: 20px;
+  background: rgba(0,0,0,0.05);
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+  min-height: 60px;
+}
+
+.calendar-dashboard .bar-fill {
+  width: 100%;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  min-height: 4px;
+}
+
+.calendar-dashboard .bar-value {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #666;
+  text-align: center;
+}
+
+/* Habits Card */
+.calendar-dashboard .habits-card {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.calendar-dashboard .habits-card h4 {
+  color: var(--black);
+  margin-bottom: 15px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-dashboard .habits-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.calendar-dashboard .no-habits {
+  text-align: center;
+  color: #666;
+  padding: 30px 20px;
+}
+
+.calendar-dashboard .no-habits .mascot {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* Habit Items */
+.calendar-dashboard .habit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--white);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.calendar-dashboard .habit-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.calendar-dashboard .habit-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.calendar-dashboard .habit-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-dashboard .habit-name {
+  font-weight: 700;
+  color: var(--black);
+  font-size: 0.9rem;
+}
+
+.calendar-dashboard .habit-category {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+.calendar-dashboard .habit-status {
+  display: flex;
+  align-items: center;
+}
+
+.calendar-dashboard .status-done {
+  color: #28a745;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.calendar-dashboard .status-pending {
+  color: #ffc107;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.calendar-dashboard .mark-done-btn {
+  background: var(--red);
+  color: var(--white);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.calendar-dashboard .mark-done-btn:hover {
+  background: var(--marsala);
+  transform: scale(1.05);
+}
+
+.calendar-dashboard .mark-done-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading State */
+.calendar-dashboard .loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .calendar-dashboard .calendar-main {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+  
+  .calendar-dashboard .calendar-section,
+  .calendar-dashboard .selected-date-card {
+    padding: 16px;
+  }
+  
+  .calendar-dashboard .progress-stats-grid {
+    gap: 8px;
+  }
+  
+  .calendar-dashboard .stat-card {
+    padding: 12px 6px;
+  }
+  
+  .calendar-dashboard .stat-value {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-dashboard .calendar-main {
+    padding: 12px 8px;
+    gap: 12px;
+  }
+  
+  .calendar-dashboard .calendar-day {
+    padding: 4px 2px;
+  }
+  
+  .calendar-dashboard .day-number {
+    font-size: 0.8rem;
+  }
+  
+  .calendar-dashboard .progress-text {
+    font-size: 0.5rem;
+  }
+}
+
+/* Additional styles for date fixes */
+.calendar-dashboard .today-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--red);
+  color: var(--white);
+  font-size: 0.5rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.calendar-dashboard .today-badge {
+  background: var(--red);
+  color: var(--white);
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.calendar-dashboard .date-badge {
+  background: var(--bg);
+  color: var(--black);
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-left: 8px;
+  font-weight: 600;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.calendar-dashboard .calendar-day {
+  position: relative;
+}
+
+.calendar-dashboard .habit-item .habit-status .status-pending {
+  color: #666;
+  font-size: 0.75rem;
+  font-style: italic;
+}

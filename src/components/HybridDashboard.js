@@ -19,12 +19,48 @@ export default function HybridDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedDate, setSelectedDate] = useState(todayKey());
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/habits')
-      .then(response => setHabits(response.data))
-      .catch(error => console.error("Error fetching habits: ", error));
+    // Get user info from localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
   }, []);
+
+  // Get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  // Create axios instance with auth header
+  const api = axios.create({
+    baseURL: 'http://localhost:5000/api',
+    headers: {
+      'Authorization': `Bearer ${getAuthToken()}`
+    }
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchHabits();
+    }
+  }, [user]);
+
+  const fetchHabits = () => {
+    api.get('/habits')
+      .then(response => setHabits(response.data))
+      .catch(error => {
+        console.error("Error fetching habits: ", error);
+        if (error.response?.status === 401) {
+          // Token expired or invalid
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+      });
+  };
 
   useEffect(() => {
     if (showModal) {
@@ -35,7 +71,7 @@ export default function HybridDashboard() {
   }, [showModal]);
 
   const addHabit = (newHabit) => {
-    axios.post('http://localhost:5000/api/habits', newHabit)
+    api.post('/habits', newHabit)
       .then(response => {
         setHabits(prev => [...prev, response.data]);
         setShowModal(false);
@@ -43,11 +79,16 @@ export default function HybridDashboard() {
       .catch(error => {
         alert("Error adding habit!");
         console.error(error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
       });
   };
 
   const updateHabit = (id, updates) => {
-    axios.put(`http://localhost:5000/api/habits/${id}`, updates)
+    api.put(`/habits/${id}`, updates)
       .then(response => {
         setHabits(prev => prev.map(h => h._id === id ? response.data : h));
         setShowModal(false);
@@ -56,41 +97,80 @@ export default function HybridDashboard() {
       .catch(error => {
         alert("Error updating habit!");
         console.error(error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
       });
   };
 
   const removeHabit = (id) => {
-    axios.delete(`http://localhost:5000/api/habits/${id}`)
+    api.delete(`/habits/${id}`)
       .then(() => {
         setHabits(prev => prev.filter(h => h._id !== id));
       })
       .catch(error => {
         alert("Error deleting habit!");
         console.error(error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
       });
   };
 
   const markHabit = (habitId, date, status) => {
-    setHabits(s =>
-      s.map(h =>
-        h._id !== habitId
-          ? h
-          : {
-              ...h,
-              history: { ...h.history, [date]: status }
-            }
-      )
-    );
+    const habit = habits.find(h => h._id === habitId);
+    if (!habit) return;
+
+    const updatedHabit = {
+      ...habit,
+      history: {
+        ...habit.history,
+        [date]: status
+      }
+    };
+
+    api.put(`/habits/${habitId}`, { history: updatedHabit.history })
+      .then(response => {
+        setHabits(prev => prev.map(h => h._id === habitId ? response.data : h));
+      })
+      .catch(error => {
+        console.error("Error updating habit status:", error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+      });
   };
 
   const addNote = (habitId, date, text) => {
-    setHabits(s =>
-      s.map(h =>
-        h._id === habitId
-          ? { ...h, notes: { ...h.notes, [date]: text } }
-          : h
-      )
-    );
+    const habit = habits.find(h => h._id === habitId);
+    if (!habit) return;
+
+    const updatedHabit = {
+      ...habit,
+      notes: {
+        ...habit.notes,
+        [date]: text
+      }
+    };
+
+    api.put(`/habits/${habitId}`, { notes: updatedHabit.notes })
+      .then(response => {
+        setHabits(prev => prev.map(h => h._id === habitId ? response.data : h));
+      })
+      .catch(error => {
+        console.error("Error updating habit note:", error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+      });
   };
 
   function HabitCardHybrid({ habit, date, onMark, onAddNote, onEdit, onRemove }) {
@@ -138,19 +218,28 @@ export default function HybridDashboard() {
     );
   }
 
+  // Redirect to login if no user
+  if (!user) {
+    return (
+      <div className="loading-container">
+        <p>Please log in to view your dashboard</p>
+      </div>
+    );
+  }
+
   const total = habits.length;
   const doneToday = habits.filter(h => h.history?.[selectedDate] === "done").length;
 
   return (
     <div className="hybrid-dashboard">
       <div className="hybrid-root">
-        <HeaderHybrid total={total} doneToday={doneToday} xp={xp} />
+        <HeaderHybrid total={total} doneToday={doneToday} xp={xp} username={user.username} />
         <main className="hybrid-main">
           <section className="habits-column">
             {habits.length === 0 && (
               <div className="empty-card">
                 <div className="mascot">🤖</div>
-                <p>Tap the <span className="plus-inline">+</span> button to add your first habit.</p>
+                <p>Welcome, {user.username}! Tap the <span className="plus-inline">+</span> button to add your first habit.</p>
               </div>
             )}
             <div className="cards-grid">

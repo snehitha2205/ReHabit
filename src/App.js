@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import About from './components/About';
 import Landing from './components/LandingPage';
+import Calendar from './components/Calendar';
 import HybridDashboard from './components/HybridDashboard';
 import './App.css';
 
@@ -26,6 +27,10 @@ function App() {
           
           {/* Redirect any unknown routes to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />
+          <Route 
+            path="/calendar" 
+            element={<Calendar />} 
+          />
         </Routes>
       </div>
     </Router>
