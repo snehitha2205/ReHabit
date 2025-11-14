@@ -26,9 +26,12 @@ export default function BottomNavHybrid() {
         <span className="icon">📅</span>
         <span className="label">Calendar</span>
       </div>
-      <div className="nav-item">
-        <span className="icon">📖</span>
-        <span className="label">Journal</span>
+      <div 
+        className={`nav-item ${isActive('/streak') ? 'active' : ''}`}
+        onClick={() => navigate('/streak')}
+      >
+        <span className="icon">🔥</span>
+        <span className="label">Streak</span>
       </div>
       <div className="nav-item">
         <span className="icon">⚙️</span>

@@ -7,6 +7,7 @@ import About from './components/About';
 import Landing from './components/LandingPage';
 import Calendar from './components/Calendar';
 import HybridDashboard from './components/HybridDashboard';
+import Streak from './components/Streak';
 import './App.css';
 
 function App() {
@@ -31,6 +32,10 @@ function App() {
             path="/calendar" 
             element={<Calendar />} 
           />
+          <Route 
+  path="/streak" 
+  element={<Streak />} 
+/>
         </Routes>
       </div>
     </Router>

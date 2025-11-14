@@ -34,9 +34,7 @@ function Calendar() {
     }
   }, [user]);
 
-  // Fixed: Proper date key generation
   const getDateKey = (date) => {
-    // Use local date without timezone conversion
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -59,30 +57,109 @@ function Calendar() {
       });
   };
 
+  // Check if a habit is active on a specific date
+  const isHabitActiveOnDate = (habit, date) => {
+    const dateKey = getDateKey(date);
+    const startDate = habit.startDate;
+    const endDate = habit.endDate;
+    
+    // If no start date, habit is always active
+    if (!startDate) return true;
+    
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : null;
+    const current = new Date(dateKey);
+    
+    // Check if current date is after or equal to start date
+    if (current < start) return false;
+    
+    // If there's an end date, check if current date is before or equal to end date
+    if (end && current > end) return false;
+    
+    return true;
+  };
+
+  // Get active habits for a specific date
+  const getActiveHabitsOnDate = (date) => {
+    return habits.filter(habit => isHabitActiveOnDate(habit, date));
+  };
+
   const calculateDailyProgress = (habits) => {
     const progress = {};
     
+    // Get all unique dates from all habits' history
+    const allDates = new Set();
     habits.forEach(habit => {
-      Object.keys(habit.history || {}).forEach(dateKey => {
-        if (!progress[dateKey]) {
-          progress[dateKey] = {
-            total: 0,
-            done: 0,
-            habits: []
-          };
+      Object.keys(habit.history || {}).forEach(date => {
+        allDates.add(date);
+      });
+    });
+    
+    // For each date, calculate progress considering ALL habits (ORIGINAL LOGIC)
+    allDates.forEach(date => {
+      progress[date] = {
+        total: habits.length, // Count ALL habits (ORIGINAL)
+        done: 0,
+        habits: []
+      };
+      
+      habits.forEach(habit => {
+        const status = habit.history?.[date];
+        if (status === 'done') {
+          progress[date].done++;
         }
-        progress[dateKey].total++;
-        if (habit.history[dateKey] === 'done') {
-          progress[dateKey].done++;
-        }
-        progress[dateKey].habits.push({
+        progress[date].habits.push({
           id: habit._id,
           name: habit.habitName,
-          status: habit.history[dateKey],
-          category: habit.category
+          status: status || 'undone',
+          category: habit.category,
+          startDate: habit.startDate,
+          endDate: habit.endDate
         });
       });
     });
+    
+    // Also calculate for today and selected date to ensure they're always available
+    const todayKey = getDateKey(new Date());
+    const selectedKey = getDateKey(selectedDate);
+    
+    if (!progress[todayKey]) {
+      progress[todayKey] = {
+        total: habits.length,
+        done: 0,
+        habits: habits.map(habit => ({
+          id: habit._id,
+          name: habit.habitName,
+          status: habit.history?.[todayKey] || 'undone',
+          category: habit.category,
+          startDate: habit.startDate,
+          endDate: habit.endDate
+        }))
+      };
+      // Count done habits for today
+      progress[todayKey].done = habits.filter(habit => 
+        habit.history?.[todayKey] === 'done'
+      ).length;
+    }
+    
+    if (!progress[selectedKey] && selectedKey !== todayKey) {
+      progress[selectedKey] = {
+        total: habits.length,
+        done: 0,
+        habits: habits.map(habit => ({
+          id: habit._id,
+          name: habit.habitName,
+          status: habit.history?.[selectedKey] || 'undone',
+          category: habit.category,
+          startDate: habit.startDate,
+          endDate: habit.endDate
+        }))
+      };
+      // Count done habits for selected date
+      progress[selectedKey].done = habits.filter(habit => 
+        habit.history?.[selectedKey] === 'done'
+      ).length;
+    }
     
     setDailyProgress(progress);
   };
@@ -90,10 +167,8 @@ function Calendar() {
   const markHabitAsDone = (habitId, date) => {
     const dateKey = getDateKey(date);
     
-    // Check if already marked today
     const habit = habits.find(h => h._id === habitId);
     if (habit?.history?.[dateKey] === 'done') {
-      alert('This habit is already marked as done for today!');
       return;
     }
 
@@ -109,7 +184,6 @@ function Calendar() {
       );
       setHabits(updatedHabits);
       calculateDailyProgress(updatedHabits);
-      alert('Habit marked as done!');
     })
     .catch(error => {
       console.error("Error marking habit as done:", error);
@@ -119,6 +193,15 @@ function Calendar() {
         window.location.href = '/login';
       }
     });
+  };
+
+  // Check if a date is in the future
+  const isFutureDate = (date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate > today;
   };
 
   // Calendar functions
@@ -141,7 +224,25 @@ function Calendar() {
 
   const getProgressForDate = (date) => {
     const dateKey = getDateKey(date);
-    return dailyProgress[dateKey] || { total: 0, done: 0, habits: [] };
+    const progress = dailyProgress[dateKey];
+    
+    if (progress) {
+      return progress;
+    }
+    
+    // If no progress data for this date, return default with ALL habits (ORIGINAL)
+    return {
+      total: habits.length,
+      done: 0,
+      habits: habits.map(habit => ({
+        id: habit._id,
+        name: habit.habitName,
+        status: habit.history?.[dateKey] || 'undone',
+        category: habit.category,
+        startDate: habit.startDate,
+        endDate: habit.endDate
+      }))
+    };
   };
 
   const getProgressPercentage = (date) => {
@@ -150,15 +251,22 @@ function Calendar() {
   };
 
   const getProgressColor = (percentage) => {
-    if (percentage === 0) return '#e0e0e0';
-    if (percentage < 33) return '#ff6b6b';
-    if (percentage < 66) return '#ffd93d';
-    if (percentage < 100) return '#6bcf7f';
-    return '#4caf50';
+    if (percentage === 0) return '#e5e7eb';
+    if (percentage < 33) return '#fca5a5';
+    if (percentage < 66) return '#fcd34d';
+    if (percentage < 100) return '#86efac';
+    return '#4ade80';
   };
 
   const navigateMonth = (direction) => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + direction, 1));
+  };
+
+  const handleDateClick = (date) => {
+    if (isFutureDate(date)) {
+      return; // Don't allow clicking future dates
+    }
+    setSelectedDate(date);
   };
 
   const generateCalendar = () => {
@@ -166,7 +274,6 @@ function Calendar() {
     const firstDay = getFirstDayOfMonth(currentDate);
     const calendar = [];
 
-    // Previous month days
     const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
     const daysInPrevMonth = getDaysInMonth(prevMonth);
     
@@ -175,14 +282,12 @@ function Calendar() {
       calendar.push({ date, isCurrentMonth: false });
     }
 
-    // Current month days
     for (let i = 1; i <= daysInMonth; i++) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), i);
       calendar.push({ date, isCurrentMonth: true });
     }
 
-    // Next month days
-    const totalCells = 42; // 6 weeks
+    const totalCells = 42;
     const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
     
     for (let i = 1; calendar.length < totalCells; i++) {
@@ -193,24 +298,20 @@ function Calendar() {
     return calendar;
   };
 
-  const calendar = generateCalendar();
-  const selectedDateProgress = getProgressForDate(selectedDate);
-  const selectedDateKey = getDateKey(selectedDate);
-
-  // Calculate weekly progress for graph - FIXED to use proper dates
   const getWeeklyProgress = () => {
     const weekDays = [];
     const today = new Date();
     
-    // Start from 6 days ago to today
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
       const progress = getProgressForDate(date);
+      const percentage = progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
+      
       weekDays.push({
         date: date.toLocaleDateString('en-US', { weekday: 'short' }),
         fullDate: getDateKey(date),
-        percentage: progress.total > 0 ? (progress.done / progress.total) * 100 : 0,
+        percentage: percentage,
         done: progress.done,
         total: progress.total
       });
@@ -219,20 +320,22 @@ function Calendar() {
     return weekDays;
   };
 
+  const calendar = generateCalendar();
+  const selectedDateProgress = getProgressForDate(selectedDate);
+  const selectedDateKey = getDateKey(selectedDate);
   const weeklyProgress = getWeeklyProgress();
 
-  // Debug: Log current state
-  useEffect(() => {
-    console.log('Selected Date:', selectedDate);
-    console.log('Selected Date Key:', getDateKey(selectedDate));
-    console.log('Today Key:', getDateKey(new Date()));
-    console.log('Habits:', habits);
-    console.log('Daily Progress:', dailyProgress);
-  }, [selectedDate, habits, dailyProgress]);
+  // Filter habits for display only (not for counting)
+  const displayHabits = selectedDateProgress.habits.filter(habit => 
+    isHabitActiveOnDate(habit, selectedDate)
+  );
+
+  // Calculate active habits count for display (ONLY FOR DISPLAY)
+  const activeHabitsCount = getActiveHabitsOnDate(selectedDate).length;
 
   if (!user) {
     return (
-      <div className="loading-container">
+      <div className="calendar-loading">
         <p>Please log in to view your calendar</p>
       </div>
     );
@@ -240,170 +343,192 @@ function Calendar() {
 
   return (
     <div className="calendar-dashboard">
-      <div className="calendar-root">
+      <div className="calendar-container">
         {/* Header */}
-        <div className="calendar-header">
-          <div className="header-top">
+        <header className="calendar-header">
+          <div className="header-content">
             <div>
-              <div className="greeting">Habit Calendar</div>
-              <div className="title">Track Your Progress</div>
+              <h1>Calendar</h1>
+              <p className="header-subtitle">Track your habit progress</p>
             </div>
-            <div className="xp-pill">
-              {selectedDateProgress.done}/{selectedDateProgress.total} Done
+            <div className="header-actions">
+              <div className="date-display">
+                {currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()}
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
         <main className="calendar-main">
-          {/* Calendar Section */}
-          <section className="calendar-section">
-            <div className="calendar-nav">
-              <button onClick={() => navigateMonth(-1)} className="nav-button">
-                ‹
-              </button>
-              <h2>
-                {currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()}
-              </h2>
-              <button onClick={() => navigateMonth(1)} className="nav-button">
-                ›
-              </button>
-            </div>
+          <div className="calendar-layout">
+            {/* Calendar Grid */}
+            <section className="calendar-section">
+              <div className="calendar-controls">
+                <button onClick={() => navigateMonth(-1)} className="nav-button">
+                  ←
+                </button>
+                <button onClick={() => navigateMonth(1)} className="nav-button">
+                  →
+                </button>
+              </div>
 
-            <div className="calendar-grid">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                <div key={day} className="calendar-day-header">
-                  {day}
-                </div>
-              ))}
-              
-              {calendar.map(({ date, isCurrentMonth }, index) => {
-                const progress = getProgressForDate(date);
-                const percentage = getProgressPercentage(date);
-                const progressColor = getProgressColor(percentage);
-                const isDateToday = isToday(date);
-                const isDateSelected = isSelected(date);
+              <div className="calendar-grid">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="weekday-header">
+                    {day}
+                  </div>
+                ))}
                 
-                return (
-                  <div
-                    key={index}
-                    className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${
-                      isDateToday ? 'today' : ''
-                    } ${isDateSelected ? 'selected' : ''}`}
-                    onClick={() => setSelectedDate(date)}
-                  >
-                    <div className="day-number">{date.getDate()}</div>
-                    {progress.total > 0 && (
-                      <div className="day-progress">
-                        <div 
-                          className="progress-dot"
-                          style={{ backgroundColor: progressColor }}
-                        />
-                        <div className="progress-text">
-                          {progress.done}/{progress.total}
+                {calendar.map(({ date, isCurrentMonth }, index) => {
+                  const progress = getProgressForDate(date);
+                  const percentage = getProgressPercentage(date);
+                  const progressColor = getProgressColor(percentage);
+                  const isDateToday = isToday(date);
+                  const isDateSelected = isSelected(date);
+                  const isFuture = isFutureDate(date);
+                  
+                  // Calculate active habits for this date (FOR DISPLAY ONLY)
+                  const activeHabitsForDate = getActiveHabitsOnDate(date);
+                  const activeDoneCount = activeHabitsForDate.filter(habit => 
+                    habit.history?.[getDateKey(date)] === 'done'
+                  ).length;
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${
+                        isDateToday ? 'today' : ''
+                      } ${isDateSelected ? 'selected' : ''} ${
+                        isFuture ? 'future-date' : ''
+                      }`}
+                      onClick={() => handleDateClick(date)}
+                    >
+                      <div className="day-number">{date.getDate()}</div>
+                      {isFuture && <div className="future-overlay">🔒</div>}
+                      {!isFuture && activeHabitsForDate.length > 0 && (
+                        <div className="progress-indicator">
+                          <div 
+                            className="progress-bar"
+                            style={{ 
+                              width: `${percentage}%`,
+                              backgroundColor: progressColor
+                            }}
+                          />
+                          <div className="progress-text">
+                            {activeDoneCount}/{activeHabitsForDate.length}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {isDateToday && <div className="today-indicator">Today</div>}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Stats & Habits Section */}
-          <section className="stats-section">
-            <div className="selected-date-card">
-              <h3 className="date-title">
-                {selectedDate.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  month: 'long', 
-                  day: 'numeric',
-                  year: 'numeric'
+                      )}
+                    </div>
+                  );
                 })}
-                {isToday(selectedDate) && <span className="today-badge">Today</span>}
-              </h3>
-              
-              {/* Progress Stats */}
-              <div className="progress-stats-grid">
-                <div className="stat-card">
-                  <div className="stat-value">{selectedDateProgress.total}</div>
-                  <div className="stat-label">Total Habits</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-value">{selectedDateProgress.done}</div>
-                  <div className="stat-label">Completed</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-value">
-                    {selectedDateProgress.total > 0 
-                      ? Math.round((selectedDateProgress.done / selectedDateProgress.total) * 100)
-                      : 0
-                    }%
+              </div>
+            </section>
+
+            {/* Sidebar */}
+            <aside className="calendar-sidebar">
+              <div className="sidebar-section">
+                <h3>Selected Date</h3>
+                <div className="selected-date-info">
+                  <div className="date-title">
+                    {selectedDate.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
                   </div>
-                  <div className="stat-label">Completion</div>
+                  {isToday(selectedDate) && (
+                    <div className="today-badge">Today</div>
+                  )}
+                  {isFutureDate(selectedDate) && (
+                    <div className="future-badge">Future Date</div>
+                  )}
                 </div>
               </div>
 
-              {/* Weekly Progress Graph */}
-              <div className="graph-card">
-                <h4>Weekly Progress</h4>
-                <div className="bars-container">
+              <div className="sidebar-section">
+                <h3>Progress</h3>
+                <div className="progress-stats">
+                  <div className="stat">
+                    <div className="stat-value">{activeHabitsCount}</div>
+                    <div className="stat-label">Active Habits</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-value">{selectedDateProgress.done}</div>
+                    <div className="stat-label">Completed</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-value">
+                      {activeHabitsCount > 0 
+                        ? Math.round((selectedDateProgress.done / activeHabitsCount) * 100)
+                        : 0
+                      }%
+                    </div>
+                    <div className="stat-label">Completion</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sidebar-section">
+                <h3>Weekly Overview</h3>
+                <div className="weekly-chart">
                   {weeklyProgress.map((day, index) => (
-                    <div key={index} className="bar-wrapper">
-                      <div className="bar-label">{day.date}</div>
-                      <div className="bar-container">
+                    <div key={index} className="chart-day">
+                      <div className="day-label">{day.date}</div>
+                      <div className="chart-bar-container">
                         <div 
-                          className="bar-fill"
+                          className="chart-bar"
                           style={{ 
                             height: `${day.percentage}%`,
                             backgroundColor: getProgressColor(day.percentage)
                           }}
                         />
                       </div>
-                      <div className="bar-value">{day.done}/{day.total}</div>
+                      <div className="day-count">{day.done}/{day.total}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Daily Habits List */}
-              <div className="habits-card">
-                <h4>
-                  {isToday(selectedDate) ? "Today's Habits" : "Habits for Selected Day"}
-                  <span className="date-badge">{getDateKey(selectedDate)}</span>
-                </h4>
+              <div className="sidebar-section">
+                <h3>
+                  {isFutureDate(selectedDate) ? "Future Date" : 
+                   displayHabits.length === 0 ? "No Active Habits" : "Today's Habits"}
+                </h3>
                 <div className="habits-list">
-                  {habits.length === 0 ? (
-                    <div className="no-habits">
-                      <div className="mascot">📅</div>
-                      <p>No habits yet. Add some habits to track!</p>
+                  {isFutureDate(selectedDate) ? (
+                    <div className="empty-state">
+                      <p>Future dates cannot be tracked</p>
+                    </div>
+                  ) : displayHabits.length === 0 ? (
+                    <div className="empty-state">
+                      <p>No active habits for this date</p>
                     </div>
                   ) : (
-                    habits.map(habit => {
-                      const habitStatus = habit.history?.[selectedDateKey];
+                    displayHabits.map(habit => {
+                      const habitStatus = habit.status || 'undone';
                       const isDone = habitStatus === 'done';
                       const canMarkDone = !isDone && isToday(selectedDate);
                       
                       return (
-                        <div key={habit._id} className="habit-item">
-                          <div className="habit-color" style={{ backgroundColor: habit.color || "#da746f" }} />
+                        <div key={habit.id} className="habit-item">
                           <div className="habit-info">
-                            <span className="habit-name">{habit.habitName}</span>
-                            <span className="habit-category">{habit.category}</span>
+                            <div className="habit-name">{habit.name}</div>
+                            <div className="habit-category">{habit.category}</div>
                           </div>
                           <div className="habit-status">
                             {isDone ? (
-                              <span className="status-done">✅ Done</span>
+                              <span className="status-done">Completed</span>
                             ) : canMarkDone ? (
                               <button 
                                 className="mark-done-btn"
-                                onClick={() => markHabitAsDone(habit._id, selectedDate)}
+                                onClick={() => markHabitAsDone(habit.id, selectedDate)}
                               >
                                 Mark Done
                               </button>
                             ) : (
                               <span className="status-pending">
-                                {isToday(selectedDate) ? "Mark Done" : "Not Done"}
+                                {isToday(selectedDate) ? "Pending" : "Not Done"}
                               </span>
                             )}
                           </div>
@@ -413,8 +538,8 @@ function Calendar() {
                   )}
                 </div>
               </div>
-            </div>
-          </section>
+            </aside>
+          </div>
         </main>
       </div>
     </div>
