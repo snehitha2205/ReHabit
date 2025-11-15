@@ -4,13 +4,19 @@ import HeaderHybrid from "./HeaderHybrid";
 import BottomNavHybrid from "./BottomNavHybrid";
 import AddHabit from "./AddHabit";
 import "./hybrid.css";
-
+import ProfilePanel from "./ProfilePanel";
 function uid(prefix = "id") {
   return prefix + Math.random().toString(36).slice(2, 9);
 }
 
 function todayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
+}
+
+// Helper function to check if habit exists on a given date
+function habitExistsOnDate(habit, selectedDate) {
+  const habitStartDate = habit.startDate || habit.createdAt;
+  return new Date(selectedDate) >= new Date(habitStartDate);
 }
 
 export default function HybridDashboard() {
@@ -20,7 +26,8 @@ export default function HybridDashboard() {
   const [editing, setEditing] = useState(null);
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const [user, setUser] = useState(null);
-
+  const isTodaySelected = selectedDate === todayKey();
+  const [showProfile, setShowProfile] = useState(false);
   useEffect(() => {
     // Get user info from localStorage
     const userData = localStorage.getItem('user');
@@ -71,7 +78,13 @@ export default function HybridDashboard() {
   }, [showModal]);
 
   const addHabit = (newHabit) => {
-    api.post('/habits', newHabit)
+    // Add startDate to new habit
+    const habitWithDate = {
+      ...newHabit,
+      startDate: newHabit.startDate || todayKey()
+    };
+    
+    api.post('/habits', habitWithDate)
       .then(response => {
         setHabits(prev => [...prev, response.data]);
         setShowModal(false);
@@ -218,6 +231,81 @@ export default function HybridDashboard() {
     );
   }
 
+  function HabitSummaryCard({ habit, date }) {
+    const status = habit.history?.[date] || "";
+    const habitStartDate = habit.startDate || habit.createdAt;
+    const isHabitStarted = new Date(date) >= new Date(habitStartDate);
+
+    if (!isHabitStarted) {
+      return (
+        <div className="habit-summary-card not-started">
+          <div className="summary-header">
+            <div className="summary-title">{habit.title || habit.habitName}</div>
+            <div className="summary-indicator not-started-indicator">Not Started</div>
+          </div>
+          <div className="summary-meta">
+            <span className="category-tag">{habit.category || "General"}</span>
+            <span className="start-date">Starts: {new Date(habitStartDate).toLocaleDateString()}</span>
+          </div>
+          <div className="summary-status not-started-status">
+            This habit wasn't created yet on this date
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="habit-summary-card">
+        <div className="summary-header">
+          <div className="summary-title">{habit.title || habit.habitName}</div>
+          <div className={`summary-indicator ${status ? 'has-entry' : 'no-entry'}`}>
+            {status ? 'Tracked' : 'No Entry'}
+          </div>
+        </div>
+        <div className="summary-meta">
+          <span className="category-tag">{habit.category || "General"}</span>
+        </div>
+        <div className={`summary-status ${status || 'no-entry'}`}>
+          {status === "done" && (
+            <div className="status-item done-status">
+              <span className="status-icon">✔</span>
+              <span className="status-text">Done</span>
+            </div>
+          )}
+          {status === "partial" && (
+            <div className="status-item partial-status">
+              <span className="status-icon">⏳</span>
+              <span className="status-text">Partial</span>
+            </div>
+          )}
+          {status === "skipped" && (
+            <div className="status-item skipped-status">
+              <span className="status-icon">❌</span>
+              <span className="status-text">Skipped</span>
+            </div>
+          )}
+          {!status && (
+            <div className="status-item no-entry-status">
+              <span className="status-icon">—</span>
+              <span className="status-text">Not Done</span>
+            </div>
+          )}
+        </div>
+        {habit.notes?.[date] && (
+          <div className="summary-note">
+            <div className="note-label">Note:</div>
+            <div className="note-text">{habit.notes[date]}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  // Filter habits based on selected date
+  const filteredHabits = habits.filter(habit => 
+    habitExistsOnDate(habit, selectedDate)
+  );
+
   // Redirect to login if no user
   if (!user) {
     return (
@@ -227,39 +315,68 @@ export default function HybridDashboard() {
     );
   }
 
-  const total = habits.length;
-  const doneToday = habits.filter(h => h.history?.[selectedDate] === "done").length;
+  const total = filteredHabits.length;
+  const doneToday = filteredHabits.filter(h => h.history?.[selectedDate] === "done").length;
 
   return (
     <div className="hybrid-dashboard">
       <div className="hybrid-root">
-        <HeaderHybrid total={total} doneToday={doneToday} xp={xp} username={user.username} />
+        <HeaderHybrid
+          total={total}
+          doneToday={doneToday}
+          xp={xp}
+          username={user.username}
+          onDateSelect={(dateKey) => setSelectedDate(dateKey)}
+          selectedDate={selectedDate}
+        />
+
         <main className="hybrid-main">
           <section className="habits-column">
-            {habits.length === 0 && (
+            {filteredHabits.length === 0 ? (
               <div className="empty-card">
-                <div className="mascot">🤖</div>
-                <p>Welcome, {user.username}! Tap the <span className="plus-inline">+</span> button to add your first habit.</p>
+                <div className="mascot">📅</div>
+                <p>
+                  {habits.length === 0 
+                    ? `Welcome, ${user.username}! Tap the + button to add your first habit.`
+                    : `No habits to track for ${new Date(selectedDate).toLocaleDateString()}. 
+                       ${selectedDate < todayKey() ? 'This date is before your habits were created.' : 'Add a habit to get started!'}`
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="cards-grid">
+                {filteredHabits.map(habit =>
+                  isTodaySelected ? (
+                    <HabitCardHybrid
+                      key={habit._id}
+                      habit={habit}
+                      date={selectedDate}
+                      onMark={(date, status) => markHabit(habit._id, date, status)}
+                      onAddNote={(date, txt) => addNote(habit._id, date, txt)}
+                      onEdit={() => { setEditing(habit); setShowModal(true); }}
+                      onRemove={() => removeHabit(habit._id)}
+                    />
+                  ) : (
+                    <HabitSummaryCard
+                      key={habit._id}
+                      habit={habit}
+                      date={selectedDate}
+                    />
+                  )
+                )}
               </div>
             )}
-            <div className="cards-grid">
-              {habits.map(h => (
-                <HabitCardHybrid
-                  key={h._id || h.id || uid()}
-                  habit={h}
-                  date={selectedDate}
-                  onMark={(date, status) => markHabit(h._id, date, status)}
-                  onAddNote={(date, txt) => addNote(h._id, date, txt)}
-                  onEdit={() => { setEditing(h); setShowModal(true); }}
-                  onRemove={() => removeHabit(h._id)}
-                />
-              ))}
-            </div>
           </section>
         </main>
         <button className="fab" onClick={() => { setEditing(null); setShowModal(true); }}>+</button>
-        <BottomNavHybrid />
-
+        <BottomNavHybrid onProfileClick={() => setShowProfile(true)} />
+          {showProfile && (
+          <ProfilePanel
+            user={user}
+            onUserUpdate={setUser}
+            onClose={() => setShowProfile(false)}
+          />
+        )}
         {showModal && (
           <div className="modal-backdrop" tabIndex="-1">
             <div className="modal-card">

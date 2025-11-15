@@ -8,7 +8,7 @@ import Landing from './components/LandingPage';
 import Calendar from './components/Calendar';
 import HybridDashboard from './components/HybridDashboard';
 import Streak from './components/Streak';
-import Profile from './components/Profile'; // Add this import
+// import Profile from './components/Profile'; // Add this import
 import './App.css';
 import Challenges from './components/Challenges';
 
@@ -28,7 +28,7 @@ function App() {
           {/* Other routes */}
           <Route path="/about" element={<About />} />
           <Route path="/dashboard" element={<HybridDashboard />} />
-          <Route path="/profile" element={<Profile />} /> {/* Add this route */}
+          {/* <Route path="/profile" element={<Profile />} /> Add this route */}
           
           {/* Redirect any unknown routes to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -37,7 +37,7 @@ mongoose.connect(MONGODB_URI, {
     console.log('💡 Please check your MONGODB_URI in the .env file');
 });
 
-// User Schema
+// User Schema - Updated with phone field
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
@@ -58,6 +58,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
         minlength: 6
+    },
+    phone: {
+        type: String,
+        trim: true,
+        default: null
     },
     createdAt: {
         type: Date,
@@ -195,7 +200,8 @@ app.post('/api/signup', async (req, res) => {
             user: {
                 id: newUser._id,
                 username: newUser.username,
-                email: newUser.email
+                email: newUser.email,
+                phone: newUser.phone
             }
         });
 
@@ -251,7 +257,8 @@ app.post('/api/login', async (req, res) => {
             user: {
                 id: user._id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                phone: user.phone
             }
         });
 
@@ -264,7 +271,162 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Habit API routes (protected with authentication)
+// ============================================
+// USER PROFILE ROUTES (NEW)
+// ============================================
+
+// Get user profile
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Update user profile
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const { username, email, phone } = req.body;
+    const userId = req.user.userId;
+
+    // Check if username or email is already taken by another user
+    const existingUser = await User.findOne({
+      _id: { $ne: userId },
+      $or: [{ email }, { username }]
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username or email already taken by another user'
+      });
+    }
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        username, 
+        email, 
+        phone 
+      },
+      { 
+        new: true, 
+        runValidators: true 
+      }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('✅ Profile updated:', { username, email });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: updatedUser._id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        phone: updatedUser.phone
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get user statistics (streak and habit count)
+app.get('/api/user/stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Count total habits for the user
+    const habitsCount = await Habit.countDocuments({ userId });
+
+    // Calculate streak (consecutive days with completed habits)
+    const habits = await Habit.find({ userId });
+    let streak = 0;
+
+    if (habits.length > 0) {
+      let currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+
+      // Check streak going backwards from today
+      while (true) {
+        const dateKey = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        // Check if any habit was completed on this date
+        const hasCompletionOnDate = habits.some(habit => {
+          const historyValue = habit.history.get(dateKey);
+          return historyValue === 'completed' || historyValue === 'done';
+        });
+
+        if (!hasCompletionOnDate) {
+          // If today has no completions but we haven't started counting yet, skip today
+          if (streak === 0 && currentDate.toDateString() === new Date().toDateString()) {
+            currentDate.setDate(currentDate.getDate() - 1);
+            continue;
+          }
+          break;
+        }
+
+        streak++;
+        currentDate.setDate(currentDate.getDate() - 1);
+
+        // Safety limit to prevent infinite loops
+        if (streak > 1000) break;
+      }
+    }
+
+    res.json({
+      success: true,
+      streak,
+      habits: habitsCount
+    });
+  } catch (error) {
+    console.error('❌ Error fetching stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// ============================================
+// HABIT API ROUTES (Protected with authentication)
+// ============================================
 
 // Create a new habit for the authenticated user
 app.post('/api/habits', authenticateToken, async (req, res) => {
@@ -274,8 +436,10 @@ app.post('/api/habits', authenticateToken, async (req, res) => {
       userId: req.user.userId
     });
     await habit.save();
+    console.log('✅ Habit created:', habit.habitName);
     res.status(201).json(habit);
   } catch (err) {
+    console.error('❌ Error creating habit:', err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -286,6 +450,7 @@ app.get('/api/habits', authenticateToken, async (req, res) => {
     const habits = await Habit.find({ userId: req.user.userId });
     res.json(habits);
   } catch (err) {
+    console.error('❌ Error fetching habits:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -304,8 +469,10 @@ app.put('/api/habits/:id', authenticateToken, async (req, res) => {
 
     Object.assign(habit, req.body);
     await habit.save();
+    console.log('✅ Habit updated:', habit.habitName);
     res.json(habit);
   } catch (err) {
+    console.error('❌ Error updating habit:', err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -322,8 +489,10 @@ app.delete('/api/habits/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Habit not found' });
     }
 
+    console.log('✅ Habit deleted:', habit.habitName);
     res.json({ message: 'Habit deleted successfully', id: req.params.id });
   } catch (err) {
+    console.error('❌ Error deleting habit:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -336,5 +505,7 @@ app.listen(PORT, () => {
     console.log(`   http://localhost:${PORT}/api/health`);
     console.log(`   http://localhost:${PORT}/api/signup`);
     console.log(`   http://localhost:${PORT}/api/login`);
+    console.log(`   http://localhost:${PORT}/api/user/profile (GET/PUT)`);
+    console.log(`   http://localhost:${PORT}/api/user/stats (GET)`);
     console.log(`   http://localhost:${PORT}/api/habits`);
 });

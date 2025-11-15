@@ -223,27 +223,22 @@ function Calendar() {
   };
 
   const getProgressForDate = (date) => {
-    const dateKey = getDateKey(date);
-    const progress = dailyProgress[dateKey];
-    
-    if (progress) {
-      return progress;
-    }
-    
-    // If no progress data for this date, return default with ALL habits (ORIGINAL)
-    return {
-      total: habits.length,
-      done: 0,
-      habits: habits.map(habit => ({
-        id: habit._id,
-        name: habit.habitName,
-        status: habit.history?.[dateKey] || 'undone',
-        category: habit.category,
-        startDate: habit.startDate,
-        endDate: habit.endDate
-      }))
-    };
+  const dateKey = getDateKey(date);
+  // Filter only active habits on this date
+  const activeHabits = getActiveHabitsOnDate(date);
+  return {
+    total: activeHabits.length,
+    done: activeHabits.filter(habit => habit.history?.[dateKey] === 'done').length,
+    habits: activeHabits.map(habit => ({
+      id: habit._id,
+      name: habit.habitName,
+      status: habit.history?.[dateKey] || 'undone',
+      category: habit.category,
+      startDate: habit.startDate,
+      endDate: habit.endDate
+    }))
   };
+};
 
   const getProgressPercentage = (date) => {
     const progress = getProgressForDate(date);
